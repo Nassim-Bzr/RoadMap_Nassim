@@ -1,49 +1,43 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+import type { MathLevel } from '@/lib/data/math-curriculum'
+import { DEMO_MODE } from '@/lib/auth-guard'
 
 export const dynamic = 'force-dynamic'
 
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+
+interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { userCode, solution, instructions, language, taskLabel } = await req.json()
-
-    if (process.env.NEXT_PUBLIC_DEMO_MODE !== 'true') {
+    if (!DEMO_MODE) {
+      const { createClient } = await import('@/lib/supabase/server')
       const supabase = await createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return new Response('Unauthorized', { status: 401 })
     }
 
+    const { messages, topicId: _topicId, topicTitle, level } = await req.json() as {
+      messages: ChatMessage[]
+      topicId: string
+      topicTitle: string
+      level: MathLevel
+    }
+
+    const systemPrompt = `Tu es un professeur de maths bienveillant et pédagogue, spécialisé pour les data engineers. Topic actuel: ${topicTitle}. Niveau: ${level}. Explique avec des analogies data/ML, donne des exemples Python quand pertinent. Réponds en français. Sois encourageant. Limite tes réponses à 300 mots maximum pour rester concis et percutant.`
+
     const stream = await client.messages.stream({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 600,
-      messages: [{
-        role: 'user',
-        content: `Tu es un tuteur Data Engineer. Évalue ce code soumis par un étudiant pour l'exercice : "${taskLabel}"
-
-CONSIGNE DE L'EXERCICE :
-${instructions}
-
-CODE DE L'ÉTUDIANT (${language}) :
-\`\`\`${language}
-${userCode}
-\`\`\`
-
-SOLUTION ATTENDUE :
-\`\`\`${language}
-${solution}
-\`\`\`
-
-Donne un feedback court (4-6 lignes max) :
-1. Est-ce correct ? (oui/non/partiellement)
-2. Ce qui est bien
-3. Ce qui peut être amélioré (si applicable)
-4. Un conseil concret pour la prochaine fois
-
-Sois encourageant, précis, en français. Pas de blabla.`,
-      }],
+      system: systemPrompt,
+      messages: messages.map((m: ChatMessage) => ({
+        role: m.role,
+        content: m.content,
+      })),
     })
 
     const encoder = new TextEncoder()
@@ -70,8 +64,8 @@ Sois encourageant, précis, en français. Pas de blabla.`,
         'Connection': 'keep-alive',
       },
     })
-  } catch (err) {
-    console.error('Practice feedback error:', err)
+  } catch (error) {
+    console.error('Math chat error:', error)
     return new Response('Internal server error', { status: 500 })
   }
 }

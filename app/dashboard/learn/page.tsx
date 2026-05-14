@@ -6,6 +6,12 @@ import LearnPageClient from '@/components/learn/learn-page-client'
 export const dynamic = 'force-dynamic'
 
 export default async function LearnPage() {
+  // Demo mode: first task is next, no auth needed
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
+    const firstTask = OCR_PHASES[0]?.weeks[0]?.tasks[0]
+    return <LearnPageClient nextTaskId={firstTask?.id ?? null} />
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')

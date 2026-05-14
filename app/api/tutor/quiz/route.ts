@@ -9,21 +9,22 @@ export const dynamic = 'force-dynamic'
 export async function POST(req: NextRequest) {
   try {
     const { taskId, question, selectedIndex, correctIndex, options } = await req.json()
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
     const correct = selectedIndex === correctIndex
 
-    await supabase.from('quiz_attempts').insert({
-      user_id: user.id,
-      task_id: taskId,
-      question,
-      selected_answer: options[selectedIndex],
-      correct_answer: options[correctIndex],
-      correct,
-      created_at: new Date().toISOString(),
-    })
+    if (process.env.NEXT_PUBLIC_DEMO_MODE !== 'true') {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      await supabase.from('quiz_attempts').insert({
+        user_id: user.id,
+        task_id: taskId,
+        question,
+        selected_answer: options[selectedIndex],
+        correct_answer: options[correctIndex],
+        correct,
+        created_at: new Date().toISOString(),
+      })
+    }
 
     if (correct) {
       return NextResponse.json({ correct: true, explanation: null })

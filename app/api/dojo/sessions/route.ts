@@ -6,12 +6,17 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   const { snippetId, mode, wpm, accuracy, duration, errors, completed, difficulty } = await req.json()
-  const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
 
   const score = calculateScore(wpm, accuracy, difficulty)
+
+  if (DEMO) {
+    return NextResponse.json({ session: { id: 'demo-session', wpm, accuracy, score, completed } })
+  }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data, error } = await supabase.from('dojo_sessions').insert({
     user_id: user.id,
@@ -40,6 +45,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
+    return NextResponse.json({ sessions: [], bests: [] })
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

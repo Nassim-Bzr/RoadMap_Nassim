@@ -2,48 +2,45 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
-
 export const dynamic = 'force-dynamic'
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
 export async function POST(req: NextRequest) {
   try {
-    const { userCode, solution, instructions, language, taskLabel } = await req.json()
-
     if (process.env.NEXT_PUBLIC_DEMO_MODE !== 'true') {
       const supabase = await createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return new Response('Unauthorized', { status: 401 })
     }
 
-    const stream = await client.messages.stream({
+    const { messages, level, scenario } = await req.json()
+
+    if (!messages || !level) {
+      return new Response('messages and level are required', { status: 400 })
+    }
+
+    const systemPrompt = `You are an English conversation partner helping a French-speaking Data Engineer improve their English.
+The student's CEFR level is ${level}.
+Scenario: ${scenario || 'Casual conversation about technology and data engineering'}.
+
+Rules:
+- Speak in English adapted to the student's level (simpler vocabulary for A1/A2, richer for B2/C1/C2)
+- Be encouraging, patient, and pedagogical
+- Keep responses concise (2-4 sentences max for the main response)
+- After EVERY response, add exactly this format on a new line:
+  💡 Note: [one grammar tip OR vocabulary note in French, max 1 sentence]
+- Gently correct major errors by incorporating the correct form naturally in your response
+- Ask follow-up questions to keep the conversation going`
+
+    const stream = await anthropic.messages.stream({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 600,
-      messages: [{
-        role: 'user',
-        content: `Tu es un tuteur Data Engineer. Évalue ce code soumis par un étudiant pour l'exercice : "${taskLabel}"
-
-CONSIGNE DE L'EXERCICE :
-${instructions}
-
-CODE DE L'ÉTUDIANT (${language}) :
-\`\`\`${language}
-${userCode}
-\`\`\`
-
-SOLUTION ATTENDUE :
-\`\`\`${language}
-${solution}
-\`\`\`
-
-Donne un feedback court (4-6 lignes max) :
-1. Est-ce correct ? (oui/non/partiellement)
-2. Ce qui est bien
-3. Ce qui peut être amélioré (si applicable)
-4. Un conseil concret pour la prochaine fois
-
-Sois encourageant, précis, en français. Pas de blabla.`,
-      }],
+      system: systemPrompt,
+      messages: messages.map((m: { role: string; content: string }) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
     })
 
     const encoder = new TextEncoder()
@@ -70,8 +67,8 @@ Sois encourageant, précis, en français. Pas de blabla.`,
         'Connection': 'keep-alive',
       },
     })
-  } catch (err) {
-    console.error('Practice feedback error:', err)
+  } catch (error) {
+    console.error('English conversation error:', error)
     return new Response('Internal server error', { status: 500 })
   }
 }

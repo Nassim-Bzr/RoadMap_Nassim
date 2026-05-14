@@ -21,6 +21,8 @@ const TABS = [
   { path: "/dashboard",         label: "Parcours",  icon: "🗺" },
   { path: "/dashboard/learn",   label: "Tutor IA",  icon: "✨" },
   { path: "/dashboard/dojo",    label: "Dojo",      icon: "⚔️" },
+  { path: "/dashboard/english", label: "Anglais",   icon: "🇬🇧" },
+  { path: "/dashboard/math",    label: "Maths",     icon: "🧮" },
   { path: "/dashboard/stats",   label: "Stats",     icon: "📊" },
   { path: "/dashboard/journal", label: "Journal",   icon: "📔" },
 ];
@@ -40,6 +42,7 @@ export default function DashboardClient({ user, children }: Props) {
   }, [cc]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLogout = async () => {
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') return;
     const supabase = createClient();
     await supabase.auth.signOut();
     window.location.href = "/login";
@@ -77,11 +80,8 @@ export default function DashboardClient({ user, children }: Props) {
                 <FennecMascot size={36} />
                 <div style={{ display: "flex", flexDirection: "column", lineHeight: 1, gap: 2 }}>
                   <b style={{ fontFamily: "var(--f-sans)", fontSize: 16, fontWeight: 900, color: "var(--ink)", letterSpacing: "-0.02em" }}>
-                    Nassim Roadmap
+                    Roadmap Data Engineer
                   </b>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "var(--ink-mute)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                    Data Engineer
-                  </span>
                 </div>
               </div>
 
@@ -109,16 +109,17 @@ export default function DashboardClient({ user, children }: Props) {
                 ))}
                 <button
                   onClick={handleLogout}
-                  title={user.email ?? "Logout"}
+                  title={process.env.NEXT_PUBLIC_DEMO_MODE === 'true' ? "Mode démo" : (user.email ?? "Logout")}
                   style={{
                     width: 32, height: 32, borderRadius: "50%",
                     background: "var(--surface-2)", border: "2px solid var(--line)",
-                    cursor: "pointer", fontSize: 12, fontWeight: 700, color: "var(--ink-3)",
+                    cursor: process.env.NEXT_PUBLIC_DEMO_MODE === 'true' ? "default" : "pointer",
+                    fontSize: 12, fontWeight: 700, color: "var(--ink-3)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     flexShrink: 0,
                   }}
                 >
-                  {user.email?.[0]?.toUpperCase() ?? "?"}
+                  {process.env.NEXT_PUBLIC_DEMO_MODE === 'true' ? "👤" : (user.email?.[0]?.toUpperCase() ?? "?")}
                 </button>
               </div>
             </div>

@@ -11,15 +11,24 @@ export const dynamic = 'force-dynamic'
 export async function POST(req: NextRequest) {
   try {
     const { messages, currentTaskId } = await req.json()
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return new Response('Unauthorized', { status: 401 })
 
-    const [{ data: progress }, { data: profile }, { data: quizErrors }] = await Promise.all([
-      supabase.from('task_progress').select('task_id').eq('user_id', user.id).eq('completed', true),
-      supabase.from('profiles').select('full_name').eq('id', user.id).single(),
-      supabase.from('quiz_attempts').select('task_id, question').eq('user_id', user.id).eq('correct', false).order('created_at', { ascending: false }).limit(5),
-    ])
+    let progress: { task_id: string }[] = []
+    let profileName = 'Apprenant'
+    let quizErrors: { question: string }[] = []
+
+    if (process.env.NEXT_PUBLIC_DEMO_MODE !== 'true') {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return new Response('Unauthorized', { status: 401 })
+      const [{ data: p }, { data: prof }, { data: q }] = await Promise.all([
+        supabase.from('task_progress').select('task_id').eq('user_id', user.id).eq('completed', true),
+        supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+        supabase.from('quiz_attempts').select('task_id, question').eq('user_id', user.id).eq('correct', false).order('created_at', { ascending: false }).limit(5),
+      ])
+      progress = p ?? []
+      profileName = prof?.full_name ?? 'Apprenant'
+      quizErrors = q ?? []
+    }
 
     let currentTask = null, currentPhase = null
     for (const phase of OCR_PHASES) {
@@ -36,11 +45,11 @@ export async function POST(req: NextRequest) {
     }
 
     const userContext = {
-      name: profile?.full_name || 'Nassim',
+      name: profileName,
       currentTask,
       currentPhase,
-      completedTaskIds: progress?.map(p => p.task_id) || [],
-      recentErrors: quizErrors?.map(e => e.question) || [],
+      completedTaskIds: progress.map(p => p.task_id),
+      recentErrors: quizErrors.map(e => e.question),
       notes: {},
     }
 

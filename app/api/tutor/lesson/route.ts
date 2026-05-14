@@ -11,18 +11,32 @@ export const dynamic = 'force-dynamic'
 export async function POST(req: NextRequest) {
   try {
     const { taskId } = await req.json()
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
 
-    const [{ data: progress }, { data: profile }, { data: quizErrors }, { data: cached }] = await Promise.all([
-      supabase.from('task_progress').select('task_id').eq('user_id', user.id).eq('completed', true),
-      supabase.from('profiles').select('full_name').eq('id', user.id).single(),
-      supabase.from('quiz_attempts').select('task_id, question').eq('user_id', user.id).eq('correct', false).order('created_at', { ascending: false }).limit(5),
-      supabase.from('generated_lessons').select('lesson_data').eq('user_id', user.id).eq('task_id', taskId).single(),
-    ])
+    let progress: { task_id: string }[] = []
+    let profileName = 'Apprenant'
+    let quizErrors: { question: string }[] = []
+    let supabase: Awaited<ReturnType<typeof createClient>> | null = null
+    let userId: string | null = null
 
-    if (cached) return NextResponse.json({ lesson: cached.lesson_data })
+    if (!DEMO) {
+      supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      userId = user.id
+
+      const [{ data: p }, { data: prof }, { data: q }, { data: cached }] = await Promise.all([
+        supabase.from('task_progress').select('task_id').eq('user_id', userId).eq('completed', true),
+        supabase.from('profiles').select('full_name').eq('id', userId).single(),
+        supabase.from('quiz_attempts').select('task_id, question').eq('user_id', userId).eq('correct', false).order('created_at', { ascending: false }).limit(5),
+        supabase.from('generated_lessons').select('lesson_data').eq('user_id', userId).eq('task_id', taskId).single(),
+      ])
+      progress = p ?? []
+      profileName = prof?.full_name ?? 'Apprenant'
+      quizErrors = q ?? []
+      // Invalidate cache if lesson is missing the practice field (old format)
+      if (cached && cached.lesson_data?.practice) return NextResponse.json({ lesson: cached.lesson_data })
+    }
 
     let currentTask = null, currentPhase = null
     for (const phase of OCR_PHASES) {
@@ -35,17 +49,17 @@ export async function POST(req: NextRequest) {
     if (!currentTask || !currentPhase) return NextResponse.json({ error: 'Task not found' }, { status: 404 })
 
     const userContext = {
-      name: profile?.full_name || 'Nassim',
+      name: profileName,
       currentTask,
       currentPhase,
-      completedTaskIds: progress?.map(p => p.task_id) || [],
-      recentErrors: quizErrors?.map(e => e.question) || [],
+      completedTaskIds: progress.map(p => p.task_id),
+      recentErrors: quizErrors.map(e => e.question),
       notes: {},
     }
 
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 1500,
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2500,
       system: buildSystemPrompt(userContext),
       messages: [{ role: 'user', content: buildLessonPrompt(currentTask) }],
     })
@@ -62,12 +76,14 @@ export async function POST(req: NextRequest) {
       lesson = JSON.parse(match[0])
     }
 
-    await supabase.from('generated_lessons').upsert({
-      user_id: user.id,
-      task_id: taskId,
-      lesson_data: lesson,
-      generated_at: new Date().toISOString(),
-    })
+    if (supabase && userId) {
+      await supabase.from('generated_lessons').upsert({
+        user_id: userId,
+        task_id: taskId,
+        lesson_data: lesson,
+        generated_at: new Date().toISOString(),
+      })
+    }
 
     return NextResponse.json({ lesson })
   } catch (error) {

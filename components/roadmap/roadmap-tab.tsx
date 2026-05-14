@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useProgress } from "@/hooks/use-progress";
-import { useNotes } from "@/hooks/use-notes";
 import { usePomodoroContext } from "@/components/pomodoro/pomodoro-context";
 import { OCR_PHASES } from "@/lib/data/ocr-phases";
+import { ProjectChat } from "@/components/roadmap/project-chat";
 import type { Phase, Task } from "@/lib/data/types";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -41,7 +41,6 @@ const BLOC_SKILLS: Record<string, string[]> = {
 
 export default function RoadmapTab() {
   const { completed, toggle } = useProgress();
-  const { notes, saveNote } = useNotes();
   const { start: startPomo } = usePomodoroContext();
   const [activePhaseId, setActivePhaseId] = useState<string>("ocr1");
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
@@ -77,11 +76,9 @@ export default function RoadmapTab() {
         phase={activePhase}
         phaseIndex={phaseIndex}
         completed={completed}
-        notes={notes}
         openTaskId={openTaskId}
         setOpenTaskId={setOpenTaskId}
         toggle={toggle}
-        saveNote={saveNote}
         startPomo={startPomo}
       />
     </div>
@@ -246,16 +243,14 @@ function PhaseNav({ phases, activeId, completed, onSelect }: {
 // ── Bloc View ─────────────────────────────────────────────────────────────────
 
 function BlocView({
-  phase, phaseIndex, completed, notes, openTaskId, setOpenTaskId, toggle, saveNote, startPomo,
+  phase, phaseIndex, completed, openTaskId, setOpenTaskId, toggle, startPomo,
 }: {
   phase: Phase;
   phaseIndex: number;
   completed: Record<string, boolean>;
-  notes: Record<string, string>;
   openTaskId: string | null;
   setOpenTaskId: (id: string | null) => void;
   toggle: (id: string) => void;
-  saveNote: (id: string, text: string) => void;
   startPomo: (label: string) => void;
 }) {
   const allTasks = phase.weeks.flatMap(w => w.tasks);
@@ -364,12 +359,10 @@ function BlocView({
                 isLocked={isLocked}
                 isCurrent={isCurrent}
                 isOpen={isOpen}
-                note={notes[task.id] || ""}
                 onOpen={() => setOpenTaskId(isOpen ? null : task.id)}
                 onClose={() => setOpenTaskId(null)}
                 onToggle={() => toggle(task.id)}
                 onPomo={() => startPomo(task.label)}
-                onNote={t => saveNote(task.id, t)}
               />
             );
           })
@@ -383,7 +376,7 @@ function BlocView({
 
 function ProjectCard({
   task, phase, index, isDone, isLocked, isCurrent, isOpen,
-  note, onOpen, onClose, onToggle, onPomo, onNote,
+  onOpen, onClose, onToggle, onPomo,
 }: {
   task: Task;
   phase: Phase;
@@ -392,12 +385,10 @@ function ProjectCard({
   isLocked: boolean;
   isCurrent: boolean;
   isOpen: boolean;
-  note: string;
   onOpen: () => void;
   onClose: () => void;
   onToggle: () => void;
   onPomo: () => void;
-  onNote: (t: string) => void;
 }) {
   const phaseD = darken(phase.color);
 
@@ -512,11 +503,9 @@ function ProjectCard({
           task={task}
           phase={phase}
           isDone={isDone}
-          note={note}
           onClose={onClose}
           onToggle={onToggle}
           onPomo={onPomo}
-          onNote={onNote}
         />
       )}
     </div>
@@ -525,17 +514,14 @@ function ProjectCard({
 
 // ── Project Panel (expanded) ──────────────────────────────────────────────────
 
-function ProjectPanel({ task, phase, isDone, note, onClose, onToggle, onPomo, onNote }: {
+function ProjectPanel({ task, phase, isDone, onClose, onToggle, onPomo }: {
   task: Task;
   phase: Phase;
   isDone: boolean;
-  note: string;
   onClose: () => void;
   onToggle: () => void;
   onPomo: () => void;
-  onNote: (t: string) => void;
 }) {
-  const [localNote, setLocalNote] = useState(note);
   const phaseD = darken(phase.color);
 
   return (
@@ -629,26 +615,12 @@ function ProjectPanel({ task, phase, isDone, note, onClose, onToggle, onPomo, on
           </a>
         )}
 
-        {/* Notes */}
+        {/* AI Chat */}
         <div>
           <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-mute)", marginBottom: 8 }}>
-            ✏️ Mes notes
+            🤖 Assistant IA
           </div>
-          <textarea
-            value={localNote}
-            onChange={e => setLocalNote(e.target.value)}
-            onBlur={() => onNote(localNote)}
-            placeholder="Insights, blocages, ce que tu as appris…"
-            style={{
-              width: "100%", background: "var(--bg)", border: "2px solid var(--line)",
-              borderRadius: "var(--r-md)", padding: "12px 14px", color: "var(--ink)",
-              fontSize: 13, fontWeight: 600, lineHeight: 1.55, minHeight: 80,
-              resize: "vertical", outline: "none", fontFamily: "var(--f-sans)",
-              transition: "border-color 0.15s", boxSizing: "border-box",
-            }}
-            onFocus={e => (e.currentTarget.style.borderColor = phase.color)}
-            onBlurCapture={e => (e.currentTarget.style.borderColor = "var(--line)")}
-          />
+          <ProjectChat taskId={task.id} taskLabel={task.label} phaseColor={phase.color} />
         </div>
       </div>
 

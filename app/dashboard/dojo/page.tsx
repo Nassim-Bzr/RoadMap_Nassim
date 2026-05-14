@@ -5,6 +5,16 @@ import { DojoPageClient } from '@/components/dojo/dojo-page-client'
 export const dynamic = 'force-dynamic'
 
 export default async function DojoPage() {
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
+    return (
+      <DojoPageClient
+        initialSessions={[]}
+        initialBests={[]}
+        globalStats={{ totalSessions: 0, bestWpm: 0, avgAccuracy: 0 }}
+      />
+    )
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
