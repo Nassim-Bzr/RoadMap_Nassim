@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { buildChatSystemPrompt } from '@/lib/ai/tutor-prompts'
-import { ALL_PHASES } from '@/lib/data'
+import { OCR_PHASES } from '@/lib/data/ocr-phases'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     ])
 
     let currentTask = null, currentPhase = null
-    for (const phase of ALL_PHASES) {
+    for (const phase of OCR_PHASES) {
       for (const week of phase.weeks) {
         const task = week.tasks.find(t => t.id === currentTaskId)
         if (task) { currentTask = task; currentPhase = phase; break }
@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (!currentTask || !currentPhase) {
-      currentPhase = ALL_PHASES[0]
-      currentTask = ALL_PHASES[0].weeks[0].tasks[0]
+      currentPhase = OCR_PHASES[0]
+      currentTask = OCR_PHASES[0].weeks[0].tasks[0]
     }
 
     const userContext = {

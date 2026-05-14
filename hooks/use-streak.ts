@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { StreakData } from "@/lib/data/types";
 
+const LS_KEY = "roadmap_streak";
+
 const DEFAULT: StreakData = {
   current_streak: 0,
   longest_streak: 0,
@@ -11,31 +13,49 @@ const DEFAULT: StreakData = {
   total_tasks_completed: 0,
 };
 
+function loadFromLS(): StreakData {
+  if (typeof window === "undefined") return DEFAULT;
+  try { return JSON.parse(localStorage.getItem(LS_KEY) ?? "null") ?? DEFAULT; } catch { return DEFAULT; }
+}
+
+function saveToLS(data: StreakData) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LS_KEY, JSON.stringify(data));
+}
+
 export function useStreak() {
   const [streak, setStreak] = useState<StreakData>(DEFAULT);
 
   useEffect(() => {
+    const local = loadFromLS();
+    setStreak(local);
+
     const load = async () => {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) return;
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("streaks")
         .select("*")
         .eq("user_id", user.id)
         .single();
 
-      if (data) setStreak(data);
+      if (!error && data) {
+        const s: StreakData = {
+          current_streak: data.current_streak ?? 0,
+          longest_streak: data.longest_streak ?? 0,
+          last_activity_date: data.last_activity_date ?? null,
+          total_tasks_completed: data.total_tasks_completed ?? 0,
+        };
+        setStreak(s);
+        saveToLS(s);
+      }
     };
     load();
   }, []);
 
   const recordActivity = useCallback(async (completedCount: number) => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
     const today = new Date().toISOString().split("T")[0];
     let newStreak = 1;
 
@@ -58,11 +78,19 @@ export function useStreak() {
     };
 
     setStreak(updated);
-    await supabase.from("streaks").upsert({
+    saveToLS(updated);
+
+    const supabase = createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) return;
+
+    const { error } = await supabase.from("streaks").upsert({
       user_id: user.id,
       ...updated,
       updated_at: new Date().toISOString(),
     }, { onConflict: "user_id" });
+
+    if (error) console.error("streaks upsert:", error.message);
   }, [streak]);
 
   return { streak, recordActivity };

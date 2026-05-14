@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useProgress } from "@/hooks/use-progress";
 import { useStreak } from "@/hooks/use-streak";
 import { usePomodoro } from "@/hooks/use-pomodoro";
-import { BADGES, ALL_PHASES, TOTAL_TASKS } from "@/lib/data";
+import { ALL_PHASES, TOTAL_TASKS } from "@/lib/data";
 import { PomodoroTimer } from "@/components/pomodoro/pomodoro-timer";
 import { PomodoroContext } from "@/components/pomodoro/pomodoro-context";
 import { createClient } from "@/lib/supabase/client";
@@ -20,9 +20,9 @@ interface Props {
 const TABS = [
   { path: "/dashboard",         label: "Parcours",  icon: "🗺" },
   { path: "/dashboard/learn",   label: "Tutor IA",  icon: "✨" },
+  { path: "/dashboard/dojo",    label: "Dojo",      icon: "⚔️" },
   { path: "/dashboard/stats",   label: "Stats",     icon: "📊" },
   { path: "/dashboard/journal", label: "Journal",   icon: "📔" },
-  { path: "/dashboard/badges",  label: "Trophées",  icon: "🏆" },
 ];
 
 export default function DashboardClient({ user, children }: Props) {
@@ -34,7 +34,6 @@ export default function DashboardClient({ user, children }: Props) {
 
   const cc = Object.values(completed).filter(Boolean).length;
   const xp = cc * 15;
-  const earnedBadges = BADGES.filter(b => b.check(cc, TOTAL_TASKS, streak.current_streak));
 
   useEffect(() => {
     if (cc > 0) recordActivity(cc);
@@ -69,55 +68,54 @@ export default function DashboardClient({ user, children }: Props) {
           background: "var(--surface)",
           borderBottom: "2px solid var(--line)",
         }}>
-          <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 32px" }}>
+          <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 16px" }}>
 
             {/* Top row: brand + metrics */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "14px 0" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 0" }}>
               {/* Brand */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <FennecMascot size={40} />
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <FennecMascot size={36} />
                 <div style={{ display: "flex", flexDirection: "column", lineHeight: 1, gap: 2 }}>
-                  <b style={{ fontFamily: "var(--f-sans)", fontSize: 18, fontWeight: 900, color: "var(--ink)", letterSpacing: "-0.02em" }}>
+                  <b style={{ fontFamily: "var(--f-sans)", fontSize: 16, fontWeight: 900, color: "var(--ink)", letterSpacing: "-0.02em" }}>
                     Nassim Roadmap
                   </b>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--ink-mute)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                    Data · Dev · ML
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "var(--ink-mute)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                    Data Engineer
                   </span>
                 </div>
               </div>
 
-              {/* Metrics */}
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {/* Metrics — compact on mobile */}
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 {[
                   { label: "🔥", value: streak.current_streak, color: "var(--flame)", title: "Streak" },
                   { label: "💎", value: xp,                    color: "var(--gem)",   title: "XP" },
-                  { label: "🏆", value: earnedBadges.length,    color: "var(--gold-d)", title: "Trophées" },
                 ].map(m => (
                   <div
                     key={m.title}
                     title={m.title}
                     style={{
-                      display: "flex", alignItems: "center", gap: 6,
-                      padding: "7px 12px 7px 8px",
+                      display: "flex", alignItems: "center", gap: 4,
+                      padding: "5px 9px",
                       borderRadius: 99, background: "var(--surface)",
                       border: "2px solid var(--line)",
-                      fontFamily: "var(--f-sans)", fontWeight: 800, fontSize: 15,
-                      color: m.color, transition: "transform 0.12s",
-                      cursor: "default",
+                      fontFamily: "var(--f-sans)", fontWeight: 800, fontSize: 13,
+                      color: m.color, cursor: "default",
                     }}
                   >
-                    <span style={{ fontSize: 17 }}>{m.label}</span>
-                    <span style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "-0.01em" }}>{m.value}</span>
+                    <span style={{ fontSize: 14 }}>{m.label}</span>
+                    <span style={{ fontVariantNumeric: "tabular-nums" }}>{m.value}</span>
                   </div>
                 ))}
                 <button
                   onClick={handleLogout}
                   title={user.email ?? "Logout"}
                   style={{
-                    width: 36, height: 36, borderRadius: "50%",
+                    width: 32, height: 32, borderRadius: "50%",
                     background: "var(--surface-2)", border: "2px solid var(--line)",
-                    cursor: "pointer", fontSize: 13, fontWeight: 700, color: "var(--ink-3)",
+                    cursor: "pointer", fontSize: 12, fontWeight: 700, color: "var(--ink-3)",
                     display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
                   }}
                 >
                   {user.email?.[0]?.toUpperCase() ?? "?"}
@@ -125,8 +123,8 @@ export default function DashboardClient({ user, children }: Props) {
               </div>
             </div>
 
-            {/* Tab strip */}
-            <div style={{ display: "flex", gap: 6, paddingBottom: 14, overflowX: "auto" }}>
+            {/* Tab strip — scrollable */}
+            <div style={{ display: "flex", gap: 2, paddingBottom: 10, overflowX: "auto", scrollbarWidth: "none" }}>
               {TABS.map(tb => {
                 const isActive = pathname === tb.path;
                 return (
@@ -134,19 +132,19 @@ export default function DashboardClient({ user, children }: Props) {
                     key={tb.path}
                     onClick={() => router.push(tb.path)}
                     style={{
-                      display: "inline-flex", alignItems: "center", gap: 7,
-                      padding: "9px 16px",
-                      borderRadius: 99,
+                      display: "inline-flex", alignItems: "center", gap: 5,
+                      padding: "8px 12px",
+                      borderRadius: 99, flexShrink: 0,
                       border: isActive ? "2px solid var(--line)" : "2px solid transparent",
                       background: isActive ? "var(--surface)" : "transparent",
                       boxShadow: isActive ? "0 2px 0 var(--line-2)" : "none",
-                      fontFamily: "var(--f-sans)", fontSize: 13, fontWeight: 800,
+                      fontFamily: "var(--f-sans)", fontSize: 12, fontWeight: 800,
                       color: isActive ? "var(--ink)" : "var(--ink-3)",
                       cursor: "pointer", whiteSpace: "nowrap",
                       transition: "all 0.15s",
                     }}
                   >
-                    <span style={{ fontSize: 16 }}>{tb.icon}</span>
+                    <span style={{ fontSize: 15 }}>{tb.icon}</span>
                     {tb.label}
                   </button>
                 );
@@ -156,7 +154,7 @@ export default function DashboardClient({ user, children }: Props) {
         </header>
 
         {/* CONTENT */}
-        <main style={{ maxWidth: 1080, margin: "0 auto", padding: "24px 32px 120px" }}>
+        <main style={{ maxWidth: 1080, margin: "0 auto", padding: "20px 16px 120px" }}>
           {children}
         </main>
 

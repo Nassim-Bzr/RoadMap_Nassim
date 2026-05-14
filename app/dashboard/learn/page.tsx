@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { ALL_PHASES } from '@/lib/data'
+import { OCR_PHASES } from '@/lib/data/ocr-phases'
 import LearnPageClient from '@/components/learn/learn-page-client'
 
 export const dynamic = 'force-dynamic'
@@ -19,7 +19,7 @@ export default async function LearnPage() {
   const completedIds = new Set(progress?.map(p => p.task_id) || [])
 
   let nextTaskId: string | null = null
-  outer: for (const phase of ALL_PHASES) {
+  outer: for (const phase of OCR_PHASES) {
     for (const week of phase.weeks) {
       for (const task of week.tasks) {
         if (!completedIds.has(task.id)) {

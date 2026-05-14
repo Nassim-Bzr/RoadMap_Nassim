@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { buildSystemPrompt, buildLessonPrompt } from '@/lib/ai/tutor-prompts'
-import { ALL_PHASES } from '@/lib/data'
+import { OCR_PHASES } from '@/lib/data/ocr-phases'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     if (cached) return NextResponse.json({ lesson: cached.lesson_data })
 
     let currentTask = null, currentPhase = null
-    for (const phase of ALL_PHASES) {
+    for (const phase of OCR_PHASES) {
       for (const week of phase.weeks) {
         const task = week.tasks.find(t => t.id === taskId)
         if (task) { currentTask = task; currentPhase = phase; break }
